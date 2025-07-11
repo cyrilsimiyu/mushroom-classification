@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+# import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.tree import DecisionTreeClassifier
 import base64

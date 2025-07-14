@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-# import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.tree import DecisionTreeClassifier
 import base64
+from sklearn.feature_selection import SelectFromModel
 
 # --- Load dataset ---
 df = pd.read_csv("mushrooms.csv")
@@ -237,9 +237,18 @@ for col in df.columns:
 X = df_encoded.drop("class", axis=1)
 y = df_encoded["class"]
 
+fs_model = DecisionTreeClassifier(random_state=42)
+fs_model.fit(X, y)
+
+selector = SelectFromModel(fs_model, threshold="median", prefit=True)
+x = selector.transform
+
+selected_columns = df_encoded.drop("class", axis=1).columns[selector.get_support()]
+
 # --- Train model ---
+X_selected = selector.transform(X)
 model = DecisionTreeClassifier()
-model.fit(X, y)
+model.fit(X_selected, y)
 
 # --- Encode local image to base64 ---
 def get_img_as_base64(file):
@@ -312,7 +321,7 @@ st.markdown("""
 
 # --- User Inputs ---
 user_input = {}
-for col in X.columns:
+for col in selected_columns:
     if col in attribute_mappings:
         readable_options = [attribute_mappings[col][code] for code in df[col].unique()]
         selected_readable = st.selectbox(col, readable_options)
@@ -326,11 +335,29 @@ for col in X.columns:
 
 # --- Prediction ---
 if st.button("🔍 Reveal Mushroom Fate"):
-    input_df = pd.DataFrame([user_input])
+    # Start with user inputs
+    input_data = user_input.copy()
+
+    # Add placeholder values for missing features (not shown to the user)
+    full_feature_list = df.drop("class", axis=1).columns
+    for col in full_feature_list:
+        if col not in input_data:
+            # Use the mode (most common value) as a safe placeholder
+            input_data[col] = df[col].mode()[0]
+
+    # Create input dataframe
+    input_df = pd.DataFrame([input_data])
+
+    # Encode using fitted LabelEncoders
     for col in input_df.columns:
         input_df[col] = label_encoders[col].transform(input_df[col])
 
+    # Now safe to apply feature selector
+    input_df = selector.transform(input_df)
+
+    # Predict
     prediction = model.predict(input_df)[0]
+
     if prediction == 1:
         st.success("🌟 This mushroom is **EDIBLE**! You may feast safely 🍽️")
     else:

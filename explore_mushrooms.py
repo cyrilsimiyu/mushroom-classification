@@ -3,6 +3,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report 
+from sklearn.feature_selection import SelectFromModel
 
 df = pd.read_csv("mushrooms.csv")
 
@@ -47,7 +48,7 @@ df['stalk-root'] = df['stalk-root'].replace('?', 'b')
 print(df['stalk-root'].value_counts())
 
 le = LabelEncoder()
-df_encoded =  df.copy()
+df_encoded = df.copy()
 for col in df.columns:
     df_encoded[col] = le.fit_transform(df_encoded[col])
 
@@ -56,7 +57,15 @@ print(df.head())
 X = df_encoded.drop('class', axis=1)
 y = df_encoded['class']
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state = 42)
+# Feature selection using DecisionTreeClassifier
+feature_selector = DecisionTreeClassifier(random_state=42)
+feature_selector.fit(X, y)
+selector = SelectFromModel(feature_selector, threshold="mean", prefit=True)
+X = selector.transform(X)
+selected_features = X.shape[1]
+print(f"Number of selected features: {selected_features}")
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
 model = DecisionTreeClassifier()
 model.fit(X_train, y_train)
@@ -66,3 +75,4 @@ y_pred = model.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
 print(f"Model Accuracy: {accuracy:.2f}")
 print("Classification Report: ", classification_report(y_test, y_pred))
+
